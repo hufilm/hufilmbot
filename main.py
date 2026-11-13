@@ -1,3 +1,4 @@
+
 import asyncio
 import logging
 import threading
@@ -8,7 +9,7 @@ from flask import Flask
 
 # === SOZLAMALAR ===
 BOT_TOKEN = "9217478644:AAHN4xdotZXbpVq2ZrqWF4f3Ut0Yxxo0Y1Y"
-
+settings = {
     "channel": "@HUFilmlar",      # Majburiy obuna kanalingiz
     "db_channel": "@kwliskbw"     # Kino bazasi joylashgan kanal
 }
@@ -23,8 +24,8 @@ main_menu_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📢 Kanallar"), KeyboardButton(text="📁 So'rovlar")],
         [KeyboardButton(text="💳 To'lov tizimlari"), KeyboardButton(text="💎 Premium")],
-        [KeyboardButton(text="📄 Matnlar"), KeyboardButton(text="🔗 Referal")],
-        [KeyboardButton(text="👮 Adminlar")]
+        [KeyboardButton(text="📝 Matnlar"), KeyboardButton(text="🔗 Referal")],
+        [KeyboardButton(text="👨‍💻 Adminlar")]
     ],
     resize_keyboard=True
 )
@@ -36,14 +37,14 @@ async def cmd_start(message: types.Message):
         reply_markup=main_menu_kb
     )
 
-@dp.message(F.text.in_([
+@dp.message(F.text.in_({
     "📢 Kanallar", "📁 So'rovlar", "💳 To'lov tizimlari", "💎 Premium",
-    "📄 Matnlar", "🔗 Referal", "👮 Adminlar"
-]))
+    "📝 Matnlar", "🔗 Referal", "👨‍💻 Adminlar"
+}))
 async def menu_handler(message: types.Message):
     await message.answer(f"Siz '{message.text}' bo'limini tanladingiz.")
 
-# === FLASK WEBSERVER (Render 24/7 ushlab turish uchun) ===
+# === FLASH VEBSERVER (Render 24/7 ushlab turish uchun) ===
 app = Flask(__name__)
 
 @app.route('/')
@@ -65,4 +66,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-  
