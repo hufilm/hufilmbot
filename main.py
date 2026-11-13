@@ -1,4 +1,3 @@
-
 import asyncio
 import logging
 import threading
@@ -9,37 +8,41 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.exceptions import TelegramBadRequest
-from flask import Flask, render_template_string, request, redirect, url_for
+from flask import Flask, render_template_string, redirect, url_for
 from datetime import datetime
 
 # === SOZLAMALAR ===
 BOT_TOKEN = "9217478644:AAG4feyRXGijMM4mAMPI-NosT-dbwaCbtl0"
 CHANNEL_ID = "@HUFilmlar"  # Majburiy obuna kanali
-ADMIN_USERNAME = "HuFilmAdmin"
 ADMIN_ID = 6865833003      # Sizning Telegram ID raqamingiz
-PAYMENT_CARD = "8600 0000 0000 0000"
+ADMIN_USERNAME = "HuFilmAdmin"
 WEB_APP_URL = "https://hufilmbot.onrender.com"  # Render.com'dagi havolangiz
 
 # Xotira bazalari
 MOVIES = {
-    "5": {
-        "type": "text",
-        "caption": "🎬 Kino: Forsaj 9\n📄 Janr: Jangari",
+    "101": {
+        "type": "video",
+        "file_id": "BQACAgIAAxkBAA...", 
+        "title": "Tungi shahar",
+        "description": "Shahar tunda uyg'onadi...",
+        "language": "O'zbek",
+        "genre": "Jangari",
+        "access": "Hamma uchun",
+        "caption": "🎬 Kino kodi: 101\n📌 Nomi: Tungi shahar\n🌐 Til: O'zbek | 📄 Janr: Jangari",
         "views": 0
     }
 }
 USERS = set()
-REFERRALS = {}
 ERROR_LOGS = []
 
-# FSM holatlari
+# === FSM HOLATLARI (Admin kino qo'shish 7-qadamlik konstruktori) ===
 class AddMovieState(StatesGroup):
-    waiting_for_movie_file = State()
-    waiting_for_code_choice = State()
-    waiting_for_custom_code = State()
+    waiting_for_file = State()
+    waiting_for_title = State()
+    waiting_for_description = State()
+    waiting_for_language = State()
     waiting_for_genre = State()
-    waiting_for_cover_choice = State()
-    waiting_for_custom_cover = State()
+    waiting_for_access = State()
     waiting_for_confirmation = State()
 
 class BroadcastState(StatesGroup):
@@ -92,15 +95,6 @@ async def cmd_start(message: types.Message):
     if user_id not in USERS:
         USERS.add(user_id)
 
-    args = message.text.split()
-    if len(args) > 1 and args[1].startswith("ref_"):
-        try:
-            referrer_id = int(args[1].split("_")[1])
-            if referrer_id != user_id and referrer_id not in REFERRALS:
-                REFERRALS[referrer_id] = REFERRALS.get(referrer_id, 0) + 1
-        except ValueError as e:
-            ERROR_LOGS.append(f"[{datetime.now().strftime('%H:%M:%S')}] Referal xatosi: {e}")
-
     if not await check_sub_channel(user_id):
         await message.answer(
             "❌ Botdan foydalanish uchun quyidagi kanalga obuna bo'ling:",
@@ -128,7 +122,7 @@ async def callback_check_sub(callback: types.CallbackQuery):
     else:
         await callback.answer("❌ Siz hali kanalga obuna bo'lmadingiz!", show_alert=True)
 
-# === ADMIN PANEL (Faqat sizga Web Panel tugmasi bilan chiqadi) ===
+# === ADMIN PANEL ===
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
     if message.from_user.id != ADMIN_ID:
@@ -191,7 +185,7 @@ async def admin_users(message: types.Message):
 @dp.message(F.text == "🎬 Kinolar")
 async def admin_movies_list(message: types.Message):
     if message.from_user.id != ADMIN_ID: return
-    movies_list = "\n".join([f"🔹 Kod: <code>{code}</code> | Ko'rishlar: {m.get('views', 0)}" for code, m in MOVIES.items()]) if MOVIES else "Kinolar yo'q."
+    movies_list = "\n".join([f"🔹 Kod: <code>{code}</code> | Nomi: {m.get('title')} | Ko'rishlar: {m.get('views', 0)}" for code, m in MOVIES.items()]) if MOVIES else "Kinolar yo'q."
     await message.answer(f"🎬 **Kinolar ro'yxati:**\n\n{movies_list}", reply_markup=admin_menu_kb, parse_mode="HTML")
 
 @dp.message(F.text == "📌 Postlar")
@@ -222,124 +216,119 @@ async def process_broadcast(message: types.Message, state: FSMContext):
 
     await status_msg.edit_text(f"✅ Yuborildi: {sent_count} ta\n❌ Bloklaganlar: {blocked_count} ta", reply_markup=admin_menu_kb)
 
-# Foydalanuvchi bo'limlari
-@dp.message(F.text == "💳 To'lov tizimlari")
-async def payment_handler(message: types.Message):
-    pay_text = (
-        "💳 **To'lov Tizimlari va Rekvizitlar:**\n\n"
-        "Premium obuna uchun to'lovni quyidagi karta raqamiga o'tkazing:\n\n"
-        f"💳 <code>{PAYMENT_CARD}</code>\n\n"
-        f"Chekni adminga yuboring: @{ADMIN_USERNAME}"
-    )
-    await message.answer(pay_text, reply_markup=main_menu_kb, parse_mode="HTML")
-
-@dp.message(F.text == "💎 Premium")
-async def premium_handler(message: types.Message):
-    await message.answer(f"💎 **Premium Obuna**\n\nImkoniyatlarni kengaytirish uchun @{ADMIN_USERNAME} bilan bog'laning.")
-
-@dp.message(F.text == "🔗 Referal")
-async def referral_handler(message: types.Message):
-    user_id = message.from_user.id
-    bot_info = await bot.get_me()
-    ref_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-    invited_count = REFERRALS.get(user_id, 0)
-    
-    ref_text = (
-        "🔗 **Referal Tizimi**\n\n"
-        "Do'stlaringizni taklif qiling!\n\n"
-        f"📎 **Sizning havolangiz:**\n{ref_link}\n\n"
-        f"👥 Taklif qilinganlar: <b>{invited_count} ta</b>"
-    )
-    await message.answer(ref_text, reply_markup=main_menu_kb, parse_mode="HTML")
-
-# Kino qo'shish FSM
+# === KINO QO'SHISH KONSTRUKTORI (7-QADAM) ===
 @dp.message(F.text == "➕ Kino qo'shish")
 async def start_add_movie(message: types.Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID: return
-    await message.answer("🎬 Kinoni (video yoki fayl) yuboring:")
-    await state.set_state(AddMovieState.waiting_for_movie_file)
+    await message.answer("🎬 1-qadam: Kino videosini yuboring (yoki kanaldan forward qiling):")
+    await state.set_state(AddMovieState.waiting_for_file)
 
-@dp.message(AddMovieState.waiting_for_movie_file, F.video | F.document)
+@dp.message(AddMovieState.waiting_for_file, F.video | F.document)
 async def process_movie_file(message: types.Message, state: FSMContext):
     file_id = message.video.file_id if message.video else message.document.file_id
     file_type = "video" if message.video else "document"
-    auto_code = str(len(MOVIES) + 1)
+    auto_code = str(100 + len(MOVIES) + 1)
     
-    await state.update_data(file_id=file_id, file_type=file_type, auto_code=auto_code)
+    await state.update_data(file_id=file_id, file_type=file_type, code=auto_code)
+    await message.answer(f"✅ Avto kod tayyor: <b>{auto_code}</b>\n\n📝 2-qadam: Kino nomini yuboring:", parse_mode="HTML")
+    await state.set_state(AddMovieState.waiting_for_title)
+
+@dp.message(AddMovieState.waiting_for_title)
+async def process_movie_title(message: types.Message, state: FSMContext):
+    await state.update_data(title=message.text)
+    await message.answer("📄 3-qadam: Qisqacha tavsif yozing (o'tkazib yuborish uchun istalgan so'z yozing):")
+    await state.set_state(AddMovieState.waiting_for_description)
+
+@dp.message(AddMovieState.waiting_for_description)
+async def process_movie_desc(message: types.Message, state: FSMContext):
+    await state.update_data(description=message.text)
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Ha", callback_data="code_yes"), InlineKeyboardButton(text="Yo'q", callback_data="code_no")]
+        [InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data="lang_uz"), InlineKeyboardButton(text="🇷🇺 Rus", callback_data="lang_ru")],
+        [InlineKeyboardButton(text="🇬🇧 Ingliz", callback_data="lang_en"), InlineKeyboardButton(text="🇹🇷 Turk", callback_data="lang_tr")]
     ])
-    await message.answer(f"✅ Kod: <b>{auto_code}</b>. Shu kod qolsinmi?", reply_markup=kb, parse_mode="HTML")
-    await state.set_state(AddMovieState.waiting_for_code_choice)
+    await message.answer("🌐 4-qadam: Tilni tanlang:", reply_markup=kb)
+    await state.set_state(AddMovieState.waiting_for_language)
 
-@dp.callback_query(AddMovieState.waiting_for_code_choice, F.data.in_({"code_yes", "code_no"}))
-async def process_code_choice(callback: types.CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    if callback.data == "code_yes":
-        await state.update_data(final_code=data['auto_code'])
-        await callback.message.answer("✍️ Janrni kiriting:")
-        await state.set_state(AddMovieState.waiting_for_genre)
-    else:
-        await callback.message.answer("✍️ O'zingiz kod kiriting:")
-        await state.set_state(AddMovieState.waiting_for_custom_code)
-    await callback.answer()
-
-@dp.message(AddMovieState.waiting_for_custom_code)
-async def process_custom_code(message: types.Message, state: FSMContext):
-    await state.update_data(final_code=message.text)
-    await message.answer("✍️ Janrni kiriting:")
+@dp.callback_query(AddMovieState.waiting_for_language, F.data.startswith("lang_"))
+async def process_movie_lang(callback: types.CallbackQuery, state: FSMContext):
+    lang_map = {"lang_uz": "O'zbek", "lang_ru": "Rus", "lang_en": "Ingliz", "lang_tr": "Turk"}
+    lang = lang_map.get(callback.data, "O'zbek")
+    await state.update_data(language=lang)
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔥 Jangari", callback_data="genre_jangari"), InlineKeyboardButton(text="😂 Komediya", callback_data="genre_komediya")],
+        [InlineKeyboardButton(text="🚀 Fantastika", callback_data="genre_fantastika"), InlineKeyboardButton(text="🎭 Drama", callback_data="genre_drama")]
+    ])
+    await callback.message.edit_text(f"✅ Til: {lang}\n\n🎬 Janrni tanlang:", reply_markup=kb)
     await state.set_state(AddMovieState.waiting_for_genre)
-
-@dp.message(AddMovieState.waiting_for_genre)
-async def process_genre(message: types.Message, state: FSMContext):
-    await state.update_data(genre=message.text)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Ha", callback_data="cover_yes"), InlineKeyboardButton(text="Yo'q", callback_data="cover_no")]
-    ])
-    await message.answer("🖼️ Cover bo'ladimi?", reply_markup=kb)
-    await state.set_state(AddMovieState.waiting_for_cover_choice)
-
-@dp.callback_query(AddMovieState.waiting_for_cover_choice, F.data.in_({"cover_yes", "cover_no"}))
-async def process_cover_choice(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data == "cover_yes":
-        await state.update_data(cover="default")
-        await show_preview(callback.message, state)
-    else:
-        await callback.message.answer("📸 Rasm yuboring:")
-        await state.set_state(AddMovieState.waiting_for_custom_cover)
     await callback.answer()
 
-@dp.message(AddMovieState.waiting_for_custom_cover, F.photo)
-async def process_custom_cover(message: types.Message, state: FSMContext):
-    await state.update_data(cover=message.photo[-1].file_id)
-    await show_preview(message, state)
-
-async def show_preview(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    preview_text = f"🔢 Kod: {data['final_code']}\n📄 Janr: {data['genre']}\n\nQo'yilsinmi?"
+@dp.callback_query(AddMovieState.waiting_for_genre, F.data.startswith("genre_"))
+async def process_movie_genre(callback: types.CallbackQuery, state: FSMContext):
+    genre = callback.data.split("_")[1].capitalize()
+    await state.update_data(genre=genre)
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Ha", callback_data="publish_yes"), InlineKeyboardButton(text="✏️ Edit", callback_data="publish_edit")]
+        [InlineKeyboardButton(text="🟢 Hamma uchun", callback_data="access_all")],
+        [InlineKeyboardButton(text="💎 Faqat VIP obunachilar", callback_data="access_vip")],
+        [InlineKeyboardButton(text="💳 Pullik", callback_data="access_paid")]
     ])
-    await message.answer(preview_text, reply_markup=kb)
-    await state.set_state(AddMovieState.waiting_for_confirmation)
+    await callback.message.edit_text(f"✅ Janr: {genre}\n\n👥 5-qadam: Kimlar uchunligini tanlang:", reply_markup=kb)
+    await state.set_state(AddMovieState.waiting_for_access)
+    await callback.answer()
 
-@dp.callback_query(AddMovieState.waiting_for_confirmation, F.data.in_({"publish_yes", "publish_edit"}))
-async def process_final_publish(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data == "publish_yes":
+@dp.callback_query(AddMovieState.waiting_for_access, F.data.startswith("access_"))
+async def process_movie_access(callback: types.CallbackQuery, state: FSMContext):
+    access_map = {"access_all": "Hamma uchun", "access_vip": "Faqat VIP", "access_paid": "Pullik"}
+    access = access_map.get(callback.data, "Hamma uchun")
+    await state.update_data(access=access)
+    
+    data = await state.get_data()
+    preview = (
+        f"📋 **Kino ma'lumotlari tayyor:**\n"
+        f"🔢 Kod: <code>{data['code']}</code>\n"
+        f"📌 Nomi: {data['title']}\n"
+        f"📄 Tavsif: {data['description']}\n"
+        f"🌐 Til: {data['language']} | 🎭 Janr: {data['genre']}\n"
+        f"👥 Ruxsat: {access}\n\n"
+        f"Kino bazaga qo'yilsinmi?"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Ha, joylash", callback_data="pub_yes"), InlineKeyboardButton(text="❌ Bekor qilish", callback_data="pub_no")]
+    ])
+    await callback.message.edit_text(preview, reply_markup=kb, parse_mode="HTML")
+    await state.set_state(AddMovieState.waiting_for_confirmation)
+    await callback.answer()
+
+@dp.callback_query(AddMovieState.waiting_for_confirmation, F.data.in_({"pub_yes", "pub_no"}))
+async def process_movie_publish(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data == "pub_yes":
         data = await state.get_data()
-        MOVIES[data['final_code']] = {
+        MOVIES[data['code']] = {
             "type": data['file_type'],
             "file_id": data['file_id'],
-            "caption": f"🎬 Kino kodi: {data['final_code']}\n📄 Janr: {data['genre']}\n👨‍💻 Admin: @{ADMIN_USERNAME}",
+            "title": data['title'],
+            "description": data['description'],
+            "language": data['language'],
+            "genre": data['genre'],
+            "access": data['access'],
+            "caption": f"🎬 Kino kodi: {data['code']}\n📌 Nomi: {data['title']}\n🌐 Til: {data['language']} | 📄 Janr: {data['genre']}\n👥 {data['access']}\n👨‍💻 Admin: @{ADMIN_USERNAME}",
             "views": 0
         }
-        await callback.message.answer("🎉 Kino qo'shildi!", reply_markup=admin_menu_kb)
+        
+        # Tugmalar: Ko'rish, Tahrirlash, Qism qo'shish, O'chirish
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👁 Ko'rish", callback_data=f"m_view_{data['code']}"), InlineKeyboardButton(text="✏️ Tahrirlash", callback_data=f"m_edit_{data['code']}")],
+            [InlineKeyboardButton(text="➕ Qism qo'shish", callback_data=f"m_part_{data['code']}"), InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"m_del_{data['code']}")]
+        ])
+        await callback.message.edit_text(f"🎉 **{data['title']}** muvaffaqiyatli qo'shildi!", reply_markup=kb, parse_mode="HTML")
     else:
-        await callback.message.answer("🔄 Bekor qilindi.", reply_markup=admin_menu_kb)
+        await callback.message.edit_text("🔄 Bekor qilindi.", reply_markup=admin_menu_kb)
     await state.clear()
     await callback.answer()
 
-# Kino qidirish
+# === KINO QIDIRISH (KOD ORQALI) ===
 @dp.message(F.text.regexp(r'^\d+$'))
 async def search_movie(message: types.Message):
     user_id = message.from_user.id
@@ -356,10 +345,10 @@ async def search_movie(message: types.Message):
         else:
             await message.answer_document(document=movie["file_id"], caption=movie["caption"])
     else:
-        await message.answer(f"❌ Kino topilmadi.\n👨‍💻 Admin: @{ADMIN_USERNAME}")
+        await message.answer(f"❌ Kechirasiz, bunday kodli kino topilmadi.\n👨‍💻 Admin: @{ADMIN_USERNAME}")
 
 
-# === FLASK VEB-PANEL ===
+# === FLASK WEB PANEL ===
 app = Flask(__name__)
 
 WEB_TEMPLATE = """
@@ -367,7 +356,7 @@ WEB_TEMPLATE = """
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <title>HUFilmBot - Veb Boshqaruv Paneli</title>
+    <title>HUFilmBot - Web Boshqaruv Paneli</title>
     <style>
         body { font-family: Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
         .container { max-width: 1000px; margin: auto; background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -385,7 +374,7 @@ WEB_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>🎬 HUFilmBot Veb Paneli</h1>
+        <h1>🎬 HUFilmBot Web Paneli</h1>
         
         <div class="stats-grid">
             <div class="stat-card">
@@ -406,14 +395,14 @@ WEB_TEMPLATE = """
         <table>
             <tr>
                 <th>Kod</th>
-                <th>Janr / Ma'lumot</th>
+                <th>Nomi & Janr</th>
                 <th>Ko'rishlar</th>
                 <th>Amal</th>
             </tr>
             {% for code, movie in movies.items() %}
             <tr>
                 <td><b>{{ code }}</b></td>
-                <td>{{ movie.caption }}</td>
+                <td>{{ movie.title }} ({{ movie.genre }})</td>
                 <td>{{ movie.views }} marta</td>
                 <td>
                     <form action="/delete_movie/{{ code }}" method="POST" style="margin:0;">
@@ -467,4 +456,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
+
