@@ -7,9 +7,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 from flask import Flask
 
 # === SOZLAMALAR ===
-BOT_TOKEN = "9217478644:AAHN4xdotZXbpVq2ZrqWF4f3Ut0Yxxo"
+BOT_TOKEN = "9217478644:AAHN4xdotZXbpVq2ZrqWF4f3Ut0Yxxo0Y1Y"
 
-settings = {
     "channel": "@HUFilmlar",      # Majburiy obuna kanalingiz
     "db_channel": "@kwliskbw"     # Kino bazasi joylashgan kanal
 }
