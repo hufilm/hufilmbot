@@ -987,7 +987,7 @@ return redirect(url_for("web_dashboard"))
 
 @app.route("/remove_channel", methods=["POST"])
 def remove_channel():
-ch = request.form.get("channel", "").strip()
+    ch = request.form.get("channel", "").strip()
 if ch in DB["settings"]["channels"]:
     DB["settings"]["channels"].remove(ch)
     save_data()
