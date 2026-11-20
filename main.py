@@ -997,7 +997,7 @@ return redirect(url_for("web_dashboard"))
 
 @app.route("/web_add_movie", methods=["POST"])
 def web_add_movie():
-code = request.form.get("code", "").strip()
+    code = request.form.get("code", "").strip()
 if not code:
     code = str(101 + len(DB["movies"]))
     while code in DB["movies"]:
