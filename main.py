@@ -918,7 +918,7 @@ WEB_TEMPLATE = """
 
 @app.route("/")
 def web_dashboard():
-today = today_str()
+    today = today_str()
 month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
 
 users_list = sorted(
