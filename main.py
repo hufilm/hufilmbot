@@ -553,7 +553,7 @@ async def process_movie_genre(callback: types.CallbackQuery, state: FSMContext):
 async def process_movie_access(callback: types.CallbackQuery, state: FSMContext):
     access = callback.data.split("_", 1)[1]
     await state.update_data(access=access)
-        data = await state.get_data()
+    data = await state.get_data()
     preview = (
         "📋 <b>7-qadam: Tasdiqlash</b>\n\n"
         f"🔢 Kod: <code>{data['code']}</code>\n"
