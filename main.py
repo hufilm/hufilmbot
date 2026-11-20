@@ -965,7 +965,7 @@ return render_template_string(
 
 @app.route("/update_settings", methods=["POST"])
 def update_settings():
-DB["settings"]["welcome_photo"] = request.form.get("welcome_photo", "").strip()
+    DB["settings"]["welcome_photo"] = request.form.get("welcome_photo", "").strip()
 DB["settings"]["welcome_text"] = request.form.get("welcome_text", "").strip() or DEFAULT_DATA["settings"]["welcome_text"]
 DB["settings"]["payment_card"] = request.form.get("payment_card", "").strip()
 DB["settings"]["vip_price"] = request.form.get("vip_price", "").strip()
