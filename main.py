@@ -577,7 +577,7 @@ await callback.answer()
 
 
 @dp.callback_query(AddMovieState.waiting_for_confirmation, F.data.in_({"pub_yes", "pub_no"}))
-    async def process_movie_publish(callback: types.CallbackQuery, state: FSMContext):
+async def process_movie_publish(callback: types.CallbackQuery, state: FSMContext):
     if callback.data == "pub_yes":
         data = await state.get_data()
         code = data["code"]
