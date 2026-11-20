@@ -618,7 +618,7 @@ async def process_movie_publish(callback: types.CallbackQuery, state: FSMContext
 # === KINO QIDIRISH ===
 @dp.message(F.text)
 async def search_movie_by_code(message: types.Message):
-text = (message.text or "").strip()
+    text = (message.text or "").strip()
 if text in ADMIN_BUTTON_TEXTS or text.startswith("/"):
     return
 
