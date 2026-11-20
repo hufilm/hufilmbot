@@ -577,40 +577,42 @@ await callback.answer()
 
 
 @dp.callback_query(AddMovieState.waiting_for_confirmation, F.data.in_({"pub_yes", "pub_no"}))
-async def process_movie_publish(callback: types.CallbackQuery, state: FSMContext):
-if callback.data == "pub_yes":
-    data = await state.get_data()
-    code = data["code"]
-    admin_user = DB["settings"]["admin_username"].replace("@", "")
-    caption = (
-        f"🎬 <b>{data['title']}</b>\n"
-        f"🔢 Kod: <code>{code}</code>\n"
-        f"🌐 Til: {data['language']} | 🎭 Janr: {data['genre']}\n"
-        f"📄 {data['description']}\n"
-        f"👨‍💻 Admin: @{admin_user}"
-    )
-    DB["movies"][code] = {
-        "code": code,
-        "type": data["file_type"],
-        "file_id": data["file_id"],
-        "title": data["title"],
-        "description": data["description"],
-        "language": data["language"],
-        "genre": data["genre"],
-        "access": data["access"],
-        "caption": caption,
-        "views": 0,
-        "added_date": today_str(),
-    }
-    save_data()
-    await callback.message.edit_text(
-        f"🎉 <b>{data['title']}</b> qo'shildi! Kodi: <code>{code}</code>",
-        parse_mode="HTML",
-    )
-else:
-    await callback.message.edit_text("🔄 Bekor qilindi.")
-await state.clear()
-await callback.answer()
+    async def process_movie_publish(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data == "pub_yes":
+        data = await state.get_data()
+        code = data["code"]
+        admin_user = DB["settings"]["admin_username"].replace("@", "")
+        caption = (
+            f"🎬 <b>{data['title']}</b>\n"
+            f"🔢 Kod: <code>{code}</code>\n"
+            f"🌐 Til: {data['language']} | 🎭 Janr: {data['genre']}\n"
+            f"📄 {data['description']}\n"
+            f"👨‍💻 Admin: @{admin_user}"
+        )
+        DB["movies"][code] = {
+            "code": code,
+            "type": data["file_type"],
+            "file_id": data["file_id"],
+            "title": data["title"],
+            "description": data["description"],
+            "language": data["language"],
+            "genre": data["genre"],
+            "access": data["access"],
+            "caption": caption,
+            "views": 0,
+            "added_date": today_str(),
+        }
+        save_data()
+        await callback.message.edit_text(
+            f"🎉 <b>{data['title']}</b> qo'shildi! Kodi: <code>{code}</code>",
+            parse_mode="HTML",
+        )
+    else:
+        await callback.message.edit_text("🔄 Bekor qilindi.")
+    await state.clear()
+    await callback.answer()
+        
+
 
 
 # === KINO QIDIRISH ===
