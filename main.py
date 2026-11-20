@@ -1037,10 +1037,10 @@ return redirect(url_for("web_dashboard"))
 @app.route("/delete_movie/<code>", methods=["POST"])
 def delete_movie(code):
     if code in DB["movies"]:
-    title = DB["movies"][code].get("title", code)
-    del DB["movies"][code]
-    save_data()
-    add_log(f"Kino o'chirildi: {title} ({code})")
+        title = DB["movies"][code].get("title", code)
+        del DB["movies"][code]
+        save_data()
+        add_log(f"Kino o'chirildi: {title} ({code})")
     return redirect(url_for("web_dashboard"))
 
 
