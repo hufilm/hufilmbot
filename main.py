@@ -977,7 +977,7 @@ return redirect(url_for("web_dashboard"))
 
 @app.route("/add_channel", methods=["POST"])
 def add_channel():
-ch = request.form.get("channel", "").strip()
+    ch = request.form.get("channel", "").strip()
 if ch and ch not in DB["settings"]["channels"]:
     DB["settings"]["channels"].append(ch)
     save_data()
